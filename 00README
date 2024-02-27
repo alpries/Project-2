@@ -1,0 +1,138 @@
+What is this?
+=============
+
+This is a stanalone set of a few C library and POSIX syscall functions
+that depend only on the riscv64 linux kernel.  They are completely
+independent of the standard C/C++ libraries, and can serve as a micro
+sized C library built from scracth.  To build programs based on them,
+use the `-nostdlib -static' gcc/linker flags and note that:
+
+    All non-static global function names are prefixed with 'L'
+
+The source files are:
+
+- Llibc.c : A set of ~15 C library functions built upon the POSIX syscalls
+    Lwrite() and Lread() (and no others) from posix-calls.c.  It needs:
+
+- posix-calls.c :  A set of ~20 POSIX syscalls based on linux syscall(2).
+    In turn, the functions in posix-calls.c need the linux syscall ABI:
+
+- syscall-riscv64.S :  Uses riscv64 calling ABI to implement linux syscall(2) 
+    with errno support
+
+- crt-callmain-riscv64.S :  Implements C runtime code for calling main()
+    based on linux execv ABI and riscv64 calling ABI
+
+- Llinker.ld :  Linker script
+
+Dependency structure
+====================
+
+                            Llibc.c
+        (Library functions, like the C library functions in man 3)
+              |                                       |
+              |                                       | for using main()
+              |                                       |
+        posix-calls.c                       crt-callmain-riscv64.S
+      (Posix syscall functions)           (C runtime code, linux/riscv ABI)
+              |
+              |
+        syscall-riscv64.S
+      (Standalone linux syscall(2) ABI, with errno)
+
+To build programs using Llibc functions, link against the full object set:
+
+    Llibc.o posix-calls.o syscall-riscv64.o crt-callmain-riscv64.o
+
+You could also bypass Llibc/main() and use the functions in posix-calls.c
+(link with posix-calls.o and syscall-riscv64.o), or even bypass that and
+use the syscall(2) from syscall-riscv64.S (link with syscall-riscv64.o).
+
+How programs are run
+====================
+
+    - The linker uses an entry point symbol (default label is "_start")
+      to know the machine code instruction where program execution
+      should begin, and when the program executable file is built,
+      the header is marked with the address of this entry point
+
+    - When executing an executable binary, the OS kernel looks at the
+      header to find out this entry point, loads the program into RAM,
+      makes the CPU jump to the entry point - and the program starts
+      running
+
+    - During program building/compilation, the linker (behind the scenes) 
+      adds an initial piece of program code (the one with the "_start" label)
+      to the beginning of your program code.  This initial piece of code,
+      known as the C runtime startup routine, is the one responsible for
+      calling main(), using an architecture-dependent calling convention
+      ABI.  This code is in:
+
+        crt-callmain-riscv64.S (source), crt-callmain-riscv64.o (object) 
+
+      The crt startup routine simply sets up main()'s argument parameters
+      (that the kernel has put on program stack when exec'ing the program),
+      and then calls main().  When main() returns, the crt routine uses the
+      exit syscall to terminate the program with the return value returned
+      by main().
+
+How to build the Llibc linux library
+====================================
+
+  - Compile source files into object files (without linking):
+
+        gcc -Wall -c syscall-riscv64.S -o syscall-riscv64.o
+        gcc -Wall -c posix-calls.c -o posix-calls.o
+        gcc -Wall -c crt-callmain-riscv64.S -o crt-callmain-riscv64.o
+        gcc -Wall -c Llibc.c -o Llibc.o
+
+  - Put them in a static library file lib4490.a (optional):
+
+        ar rcs lib4490.a \
+            syscall-riscv64.o \
+            posix-calls.o \
+            crt-callmain-riscv64.o \
+            Llibc.o
+
+  (To link with the static library file lib4490.a, use the build flags
+  -L. -l4490; see example below.)
+
+How to build standalone linux programs using Llibc
+==================================================
+
+    - Compile the library/syscall object files as above
+
+    - In your userprog.c file, #include "Llibc.h" to use the functions
+      in Llibc.h --- you have to use the L prefix for any function!
+
+    - Build a standalone user program userprog.c as follows:
+
+        # Compile (but do not link) the user program object code:
+        gcc -Wall -c userprog.c -o userprog.o
+
+        # Build program by linking against lib4490.a (if already done)
+        ld -TLlinker.ld -static -nostdlib userprog.o -L. -l4490 -o userprog
+
+        # Or build by linking directly against the object files:
+        ld -TLlinker.ld -static -nostdlib userprog.o \
+            syscall-riscv64.o posix-calls.o \
+            crt-callmain-riscv64.o Llibc.o \
+            -o userprog
+
+      Order can be important during linking!
+
+    You can make a Makefile for doing all this (exercise!)
+
+Example user codes that use Llibc
+=================================
+
+You can build the following sample user codes using the above procedure:
+
+    cat.c           Sample user code (same as xv6:user/cat.c)
+    xecho.c         Sample user code
+
+For practice, convert the xv6 user program codes in grep.c and wc.c
+and build them against Llibc/linux.
+
+- Updated 2024 February 13 (Abhijit Dasgupta)
+
