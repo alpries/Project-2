@@ -52,18 +52,19 @@ Lmain(int argc, char *argv[]){
      // Loops through the Line token
      for(int j =0; j < 30; j++){
 	// Makes sure the tokens arent null
-       if(token[j] != NULL){
-	 // Help Command was Called
-	 // Has \n because when user inputs help they have to click enter(\n)
-	 if (Lstrcmp(token[j], "help\n") == 0){
- 	   help();
-	   break;
-	 }
-	
-	 // Display an invalid message when token doesn't match an action
-	 Lprintf("Invalid Command\n");
+       if(token[j] == NULL){
 	 break;
        }
+        // Help Command was Called
+	// Has \n because when user inputs help they have to click enter(\n)
+       if(Lstrcmp(token[j], "help\n") == 0){
+ 	 help();
+	 break;
+       }
+	
+       // Display an invalid message when token doesn't match an action
+       Lprintf("Invalid Command\n");
+       break;
      }
   }
 
