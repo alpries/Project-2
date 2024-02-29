@@ -5,6 +5,8 @@
 #define TOKEN_SIZE 100
 
 int parseLine(char **line, int len, char **token);
+// Peek at the top directory on the stack without popping it
+int cdDir(char *dir, int currInode);
 
 /* Starts the Terminal*/
 
@@ -106,4 +108,12 @@ parseLine(char **line, int len, char **token){
     return 1;
 }
 
-
+// Peek at the top directory on the stack without popping it
+DirectoryEntry peek(const DirectoryStack *stack) {
+    if (stack->top >= 0) {
+        return stack->entries[stack->top];
+    } else {
+        printf("Stack is empty\n"); // Return something else when a stack is empty
+        return (DirectoryEntry){0, ""}; // Return an empty directory entry
+    }
+}

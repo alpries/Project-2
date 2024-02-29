@@ -1,0 +1,42 @@
+HELP FOR THE FILESYSTEM PROGRAMMING PROJECT
+===========================================
+
+This directory is meant to be a helpful starting point for
+Programming Project 2 (on filesystems).  The codebase here
+is partial, but it already has a great deal of startup and
+guiding code!
+
+- Study the xv6 files below --- I have added some comments/pictures.
+  The ones with the L prefix have significant modifications.
+
+    Lbio.c Ldiskio.c buf.h fs.h param.h Lstat.h
+
+  The Lbio.c file implements the main buffer cache backend.
+
+- I have provided a pre-compiled binary file:
+
+    Lcli-staticbin
+
+  This will give you an idea of how the CLI interface should work
+  once pwd, ls, and cd are implemented.  It can be run on any
+  riscv64 linux machine.
+
+- I have stripped code from the main file:
+
+    Lcli.c
+
+  You can start with this, but you will have to add command line
+  string/token processing code in it, and use/call filesystem
+  helper functions that you will need to implement in the
+  walkfunctions.c file, which I have removed.
+
+- You will need to write basic filesystem helper functions
+  in walkfunctions.c.  Althoigh it is not provided, I have
+  included the header file:
+
+    walkfunctions.h 
+
+  This header file describes the functions in walkfunctions.c.
+
+Happy coding!
+
