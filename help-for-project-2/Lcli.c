@@ -3,6 +3,7 @@
 #include "Lcli.h"
 #include "walkfunctions.h"
 
+
 #define LINESIZE 1024   /* Line buffer size */
 #define NTOKS 128       /* Max number of tokens in a line */
 #define TOKEN_SIZE 100
@@ -244,15 +245,17 @@ Lmain(int argc, char *argv[])
       			 	}
 				// Handles pwd command
 				if (Lstrcmp(token[j], "pwd\n") == 0){
+					//Lprintf("Got here");
 					//Lprintf("%s\n", CWD.name);
-					//printStack(&dirStack);
+					printStack(&dirStack);
+					Lprintf("\n");
 					break;
 				}
 	
        				// Display an invalid message when token doesn't match an action
        				Lprintf("Invalid Command\n");
        				break;
-    		 		}
+    		 	}
   		}
 		/*
 			If command was pwd:
@@ -406,4 +409,18 @@ void printStack(const DirectoryStack *stack) {
     }
    // Lprintf("\n");
 }
+
+void *memcpy(void *dest, const void *src, size_t n) {
+    char *d = dest;
+    const char *s = src;
+    while (n--) *d++ = *s++;
+    return dest;
+}
+
+void *memset(void *s, int c, size_t n) {
+    unsigned char *p = s;
+    while (n--) *p++ = (unsigned char)c;
+    return s;
+}
+
 
