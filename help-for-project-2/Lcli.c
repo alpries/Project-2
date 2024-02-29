@@ -213,15 +213,6 @@ Lmain(int argc, char *argv[])
 		/* With the terminal in line buffered mode, buf will hold
 			the '\n' character indicating the end of line
 		   */
-		int linelen;
-		//for (linelen = 0; buf[linelen] != '\n' && linelen < LINESIZE; linelen++)
-		//	;
-		// Removes \n
-		//buf[linelen] = 0;
-		ptrBuf = buf;
-		parseLine(&ptrBuf, Lstrlen(buf),token);
-
-		//Lprintf("You typed:  %s\n", buf);
 		
 		/* Analyze line typed by user ... */
 			//Write your code here!
@@ -245,11 +236,15 @@ Lmain(int argc, char *argv[])
       			 	}
 				// Handles pwd command
 				if (Lstrcmp(token[j], "pwd\n") == 0){
-					//Lprintf("Got here");
 					//Lprintf("%s\n", CWD.name);
 					printStack(&dirStack);
 					Lprintf("\n");
 					break;
+				}
+				if(Lstrcmp(token[j], "get\n") == 0){
+					getinode(inode,1);
+					break;
+
 				}
 	
        				// Display an invalid message when token doesn't match an action
@@ -283,12 +278,16 @@ Lmain(int argc, char *argv[])
 					// Try to do the cd, i.e., update struct CWD properly
 					// Mostly string processing here
 				} else {
-					Lprintf("Could not cd to %s (not a directory)\n", path);
+				Lprintf("Could not cd to %s (not a directory)\n", path);
 				}
 		*/
+
+		for(int i = 0; i< LINESIZE; i++){
+			buf[i] = 0;
+		}
 		Lprintf("fscli> ");
 	}
-	Lprintf("\n");
+	//Lprintf("\n");
 	return 0;
 
 }
