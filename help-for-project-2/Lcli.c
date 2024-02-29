@@ -365,7 +365,8 @@ void push(DirectoryStack *stack, CWD dir) {
     // checks if stack is full
     if (stack->top < STACK_SIZE - 1) {
         stack->top++;
-        stack->entries[stack->top] = dir;
+        //stack->entries[stack->top] = dir;
+	Lmemcpy(&stack->entries[stack->top], &dir, sizeof(stack));
     } else {
         //Do something when the stack is full
     }
@@ -374,24 +375,26 @@ void push(DirectoryStack *stack, CWD dir) {
 // Pop a directory from the stack
 CWD pop(DirectoryStack *stack) {
     if (stack->top >= 0) {
-        CWD dir = stack->entries[stack->top];
+        //CWD dir = stack->entries[stack->top];
+	CWD dir;
+	Lmemcpy(&dir, &stack->entries[stack->top], sizeof(stack));
         stack->top--;
         return dir;
-    } else {
-        // Return something else when stack is empty
-        return (CWD){0, ""}; // Return an empty directory entry
-    }
+    }else{
+	CWD newDir = {0, ""};
+	return newDir;
+    } 
 }
 
 // Peek at the top directory on the stack without popping it
-CWD peek(const DirectoryStack *stack) {
-    if (stack->top >= 0) {
-        return stack->entries[stack->top];
-    } else {
+//CWD peek(const DirectoryStack *stack) {
+//    if (stack->top >= 0) {
+//        return stack->entries[stack->top];
+//    } else {
         // Return something else when a stack is empty
-        return (CWD){0, ""}; // Return an empty directory entry
-    }
-}
+//        return (CWD){0, ""}; // Return an empty directory entry
+//    }
+//}
 
 // print the current stack for pwd command
 void printStack(const DirectoryStack *stack) {
@@ -404,6 +407,6 @@ void printStack(const DirectoryStack *stack) {
         }
 
     }
-   // Lprintf("\n");
+    Lprintf("\n");
 }
 
