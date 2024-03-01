@@ -189,7 +189,8 @@ Lmain(int argc, char *argv[])
 		Lprintf("  file size = %u (bytes)\n", inode->size);
 		Lprintf("  block map:\n");
 		for (uint j = 0; j < NDIRECT && inode->addrs[j] != 0; j++)
-			Lprintf("    direct block 0x%08x\n", inode->addrs[j]);
+		//	Lprintf("    direct block 0x%08x\n", inode->addrs[j]);
+			Lprintf("    direct block decimal: %d, hexadecimal: 0x%08x\n", inode->addrs[j], inode->addrs[j]);
 		if (inode->size > NDIRECT * BSIZE && inode->addrs[NDIRECT - 1] != 0)
 			Lprintf("      indirect block 0x%08x\n", inode->addrs[NDIRECT]);
 	}
@@ -241,10 +242,18 @@ Lmain(int argc, char *argv[])
 					Lprintf("\n");
 					break;
 				}
-				if(Lstrcmp(token[j], "get\n") == 0){
-					getinode(inode,1);
+				if(Lstrcmp(token[j], "find") == 0){
+					Lprintf("Returned Inode: %d\n", find_name_in_dirblock(Latoi(token[j+1]),token[j+2]));
 					break;
+				}
 
+				if(Lstrcmp(token[j], "dent") == 0){
+					Lprintf("Returned Inode: %d\n", find_dent(Latoi(token[j+1]), token[j+2]));
+					break;
+				}
+				if(Lstrcmp(token[j], "path") == 0){
+					Lprintf("Returned Inode: %d\n", namei(token[j+1]));
+					break;
 				}
 	
        				// Display an invalid message when token doesn't match an action
