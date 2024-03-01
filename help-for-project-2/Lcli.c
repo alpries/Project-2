@@ -205,12 +205,12 @@ Lmain(int argc, char *argv[])
 
 	/* Now list the current/root directory */
 	// lspath(CWD.name);
-
+        int flag = 0;
 	char buf[LINESIZE];
 	char *ptrBuf;
 	char *token[NTOKS];
 	Lprintf("fscli> ");
-	while (Lread(0, buf, LINESIZE) > 0) {
+	while (Lread(0, buf, LINESIZE) > 0 && flag == 0) {
 		/* With the terminal in line buffered mode, buf will hold
 			the '\n' character indicating the end of line
 		   */
@@ -231,12 +231,12 @@ Lmain(int argc, char *argv[])
        				/* Help Command was Called
 				 Has \n because when user inputs help they have to click enter(\n)
 				 Handles \"help\" command*/
-       				if(Lstrcmp(token[j], "help\n") == 0){
+       				if(Lstrcmp(token[j], "help") == 0){
  	 				help();
 	 				break;
       			 	}
 				// Handles pwd command
-				if (Lstrcmp(token[j], "pwd\n") == 0){
+				if (Lstrcmp(token[j], "pwd") == 0){
 					//Lprintf("%s\n", CWD.name);
 					printStack(&dirStack);
 					Lprintf("\n");
@@ -263,6 +263,10 @@ Lmain(int argc, char *argv[])
 
 				if (Lstrcmp(token[j], "lspath") == 0){
 					lspath(token[j+1]);
+					break;
+				}
+				if(Lstrcmp(token[j], "quit") == 0){
+					flag = 1;
 					break;
 				}
 	
@@ -304,7 +308,11 @@ Lmain(int argc, char *argv[])
 		for(int i = 0; i< LINESIZE; i++){
 			buf[i] = 0;
 		}
-		Lprintf("fscli> ");
+		if (flag == 1){
+			break;
+		} else {
+			Lprintf("fscli> ");
+		}
 	}
 	//Lprintf("\n");
 	return 0;
@@ -318,11 +326,8 @@ parseLine(char **line, int len, char **token){
     int inToken = 0;
 
     for(int i = 0; i < len;i++){
-        if((*line)[i] == '\n'){
-            break;
-        }
 
-        if ((*line)[i] != ' '){
+        if ((*line)[i] != ' ' && (*line)[i] != '\n'){
             if (inToken == 0){
 		if (i > 0){
                   (*line)[i-1] = '\0';
@@ -333,7 +338,7 @@ parseLine(char **line, int len, char **token){
             inToken = 1;
         }
 
-        if ((*line)[i] == ' '){
+        if ((*line)[i] == ' ' || (*line)[i] == '\n'){
             if (inToken == 1){
                  (*line)[i] = '\0';
             }
