@@ -260,6 +260,11 @@ Lmain(int argc, char *argv[])
 					lsdir(46);
 					break;
 				}
+
+				if (Lstrcmp(token[j], "lspath") == 0){
+					lspath(token[j+1]);
+					break;
+				}
 	
        				// Display an invalid message when token doesn't match an action
        				Lprintf("Invalid Command\n");

@@ -40,7 +40,7 @@ uint find_name_in_dirblock(uint blockptr, const char *nam){
   Lprintf("Validity:  %d\n", b->valid);
   if (b->valid == 1){
     struct dirent *dir;
-    for (int k = 0; k < 16; k++) {
+    for (int k = 0; k < 64; k++) {
       dir = (struct dirent *) &b->data[k*16];
       if (Lstrcmp(dir->name, (char *)nam) == 0){
 	      return dir->inum;
@@ -59,8 +59,19 @@ uint find_dent(uint inum, const char *name){
   if (result == -1 || inode.type != T_DIR ) {
     	return 0;
   }
-  uint blockptr = inode.addrs[0];
-  uint dentnum = find_name_in_dirblock(blockptr, name);
+  //uint blockptr = inode.addrs[0];
+  //uint dentnum = find_name_in_dirblock(blockptr, name);
+  uint dentnum = 0;
+  for(int i = 0; i < 13; i++){
+    if (inode.addrs[i] == 0){
+       break;
+    }
+    dentnum = find_name_in_dirblock(inode.addrs[i], name);
+    if (dentnum != 0){
+     break;
+    }
+
+  }
   return dentnum;
 }
 
@@ -109,4 +120,21 @@ void lsdir(uint blockptr){
   }
 
   brelse(b);
+}
+
+int lspath(const char *pathname){
+  uint inum = namei(pathname);
+  if(inum == 0){
+    return -1;
+  }
+
+  struct dinode inode;
+  int result = getinode(&inode, inum);
+  if(result == -1 || inode.type != T_DIR){
+    return -1;
+  }
+
+  lsdir(inode.addrs[0]);
+
+  return 0;
 }
