@@ -90,3 +90,23 @@ uint namei(const char *pathname){
     }
     return inum;
 }
+
+
+void lsdir(uint blockptr){
+  struct buf *b;
+  b = bread(DEVFD, blockptr);
+  struct dirent *dir;
+
+  for (int k = 0; k < 64; k++) {
+    dir = (struct dirent *) &b->data[k*16];
+    struct dinode inode;
+    int result = getinode(&inode, dir->inum);
+    if(result == -1){
+      continue;
+    }
+   // Lprintf("Inode: %d   Name: %s\n", dir->inum, dir->name);
+    Lprintf("%s      %d %d %d\n", dir->name, inode.type, dir->inum, inode.size);
+  }
+
+  brelse(b);
+}

@@ -255,6 +255,11 @@ Lmain(int argc, char *argv[])
 					Lprintf("Returned Inode: %d\n", namei(token[j+1]));
 					break;
 				}
+				
+				if(Lstrcmp(token[j], "ls") == 0){
+					lsdir(46);
+					break;
+				}
 	
        				// Display an invalid message when token doesn't match an action
        				Lprintf("Invalid Command\n");
