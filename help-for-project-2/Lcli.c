@@ -51,6 +51,7 @@ void push(DirectoryStack *stack, CWD dir);
 CWD pop(DirectoryStack *stack);
 CWD peek(const DirectoryStack *stack);
 void printStack(const DirectoryStack *stack);
+int lsCommand(char *token[]);
 
 
 void
@@ -86,6 +87,13 @@ cwd_init(void)
 	CWD newDir = {1, ""};
 	Lstrcpy(newDir.name, "/");
 	push(&dirStack,newDir); 
+}
+
+void
+cwd_update(uint inum, const char *name){
+	CWD newDir = {inum, ""};
+	Lstrcpy(newDir.name, name);
+	push(&dirStack,newDir);
 }
 
 int
@@ -243,12 +251,13 @@ Lmain(int argc, char *argv[])
 					break;
 				}
 				if (Lstrcmp(token[j], "cd") == 0){
-					uint cdresult = cd(1, token[j+1]);
+					uint cdresult = cd(dirStack.entries[dirStack.top].inum, token[j+1]);
 					if (cdresult == -1){
 						Lprintf("Directory does not exist\n");
 					       break;	
 					}
-					Lprintf("Worked: %d\n", cdresult);
+					cwd_update(cdresult, token[j+1]);
+					//Lprintf("Worked: %d\n", cdresult);
 					break;
 				}
 
@@ -267,8 +276,24 @@ Lmain(int argc, char *argv[])
 				}
 				
 				if(Lstrcmp(token[j], "ls") == 0){
-					lsdir(46);
+					int lsResult = lsCommand(token);
+					if (lsResult == -1){
+					    Lprintf("Directory does not exist\n");
+					    break;
+					}
 					break;
+				//	struct dinode inode;
+  				//	int result = getinode(&inode, dirStack.entries[dirStack.top].inum);
+				//	if (result == -1){
+				//		break;
+				//	}
+				//	for(int i = 0; i < 13; i++){
+				//		if (inode.addrs[i] == 0){
+				//			break;
+				//		}
+				//		lsdir(inode.addrs[i]);
+				//	}
+				//	break;
 				}
 
 				if (Lstrcmp(token[j], "lspath") == 0){
@@ -356,6 +381,26 @@ parseLine(char **line, int len, char **token){
         }
     }
     return 1;
+}
+
+/*****************************
+ * IMPLEMENTING LS COMMAND
+ ****************************/
+
+int
+lsCommand(char *token[]){
+	struct dinode inode;
+	int result = getinode(&inode, dirStack.entries[dirStack.top].inum);
+	if (result == -1 || inode.type != T_DIR){
+		return -1;
+	}
+	for(int i = 0; i < 13; i++){
+		if (inode.addrs[i] == 0){
+			return 0;
+		}
+		lsdir(inode.addrs[i]);
+	}
+	return 0;
 }
 
 /*****************************
