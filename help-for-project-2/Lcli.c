@@ -51,7 +51,7 @@ void push(DirectoryStack *stack, CWD dir);
 CWD pop(DirectoryStack *stack);
 CWD peek(const DirectoryStack *stack);
 void printStack(const DirectoryStack *stack);
-int lsCommand(char *token[]);
+int lsCommand(char *token[], int curr);
 
 
 void
@@ -216,9 +216,10 @@ Lmain(int argc, char *argv[])
         int flag = 0;
 	char buf[LINESIZE];
 	char *ptrBuf;
-	char *token[NTOKS];
+	//char *token[NTOKS] = {NULL};
 	Lprintf("fscli> ");
 	while (Lread(0, buf, LINESIZE) > 0 && flag == 0) {
+		char *token[NTOKS] = {NULL};
 		/* With the terminal in line buffered mode, buf will hold
 			the '\n' character indicating the end of line
 		   */
@@ -276,24 +277,13 @@ Lmain(int argc, char *argv[])
 				}
 				
 				if(Lstrcmp(token[j], "ls") == 0){
-					int lsResult = lsCommand(token);
+					int lsResult = lsCommand(token,j);
 					if (lsResult == -1){
 					    Lprintf("Directory does not exist\n");
 					    break;
 					}
 					break;
-				//	struct dinode inode;
-  				//	int result = getinode(&inode, dirStack.entries[dirStack.top].inum);
-				//	if (result == -1){
-				//		break;
-				//	}
-				//	for(int i = 0; i < 13; i++){
-				//		if (inode.addrs[i] == 0){
-				//			break;
-				//		}
-				//		lsdir(inode.addrs[i]);
-				//	}
-				//	break;
+			
 				}
 
 				if (Lstrcmp(token[j], "lspath") == 0){
@@ -355,42 +345,71 @@ Lmain(int argc, char *argv[])
 }
 
 // Takes the Line command, as well as the size
+/*****************************
+ * IMPLEMENTING PARSELINE
+ ****************************/
 int
 parseLine(char **line, int len, char **token){
     int tokenPos = 0;
     int inToken = 0;
-
     for(int i = 0; i < len;i++){
 
-        if ((*line)[i] != ' ' && (*line)[i] != '\n'){
-            if (inToken == 0){
-		if (i > 0){
-                  (*line)[i-1] = '\0';
-		}
-                token[tokenPos++] = &(*line)[i];
+	if ((*line)[i] == '\n') {
+            (*line)[i] = '\0'; // Replace '\n' with '\0'
+            if (inToken == 1) {
+                inToken = 0; // End the current token
             }
+            break; // Exit the loop when '\n' is found
+        }
 
+        // Addd \0 before the token
+        if ((*line)[i] != ' ' && inToken == 0){
+            token[tokenPos++] = &(*line)[i];
             inToken = 1;
         }
 
-        if ((*line)[i] == ' ' || (*line)[i] == '\n'){
-            if (inToken == 1){
-                 (*line)[i] = '\0';
-            }
+        if ((*line)[i] == ' ' && inToken == 1){
+            (*line)[i] = '\0';
             inToken = 0;
-        }
+	}
     }
     return 1;
 }
-
 /*****************************
  * IMPLEMENTING LS COMMAND
  ****************************/
 
 int
-lsCommand(char *token[]){
+lsCommand(char *token[], int curr){
 	struct dinode inode;
-	int result = getinode(&inode, dirStack.entries[dirStack.top].inum);
+	uint targetInum;
+	if (token[curr+1] != NULL){
+		Lprintf("Extra word: %s\n", token[curr+1]);
+	}
+
+
+	if (token[curr+1] == NULL || Lstrcmp(token[curr+1], ".") == 0) {
+    		targetInum = dirStack.entries[dirStack.top].inum;
+	} else if (Lstrcmp(token[curr+1], "..") == 0) {
+		if (dirStack.top == 0) {
+			Lprintf("Cannot go above root\n");
+			return -1;
+		} else {
+			targetInum = dirStack.entries[dirStack.top - 1].inum;
+		}
+	}else if(token[curr+1] != NULL) {
+		uint cdresult = cd(dirStack.entries[dirStack.top].inum, token[curr+1]);
+		if (cdresult == -1){
+			return -1;
+		} 
+		targetInum = cdresult;
+	} else {
+		Lprintf("Path not supported\n");
+		return -1;
+	}
+
+
+	int result = getinode(&inode, targetInum);
 	if (result == -1 || inode.type != T_DIR){
 		return -1;
 	}
