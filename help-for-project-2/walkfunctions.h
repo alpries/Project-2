@@ -65,4 +65,4 @@ int lspath(const char *pathname);
   Use namei, getinode, and lsdir().
 */
 
-
+uint cd(uint inum, const char *name);

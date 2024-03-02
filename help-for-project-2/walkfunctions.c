@@ -138,3 +138,16 @@ int lspath(const char *pathname){
 
   return 0;
 }
+
+uint cd(uint inum, const char *name){
+  uint inumReturn = find_dent(inum, name);
+  if (inumReturn == 0){
+    return -1;
+  }
+  struct dinode inode;
+  int result = getinode(&inode, inumReturn);
+  if(result == -1 || inode.type != T_DIR){
+    return -1;
+  }
+  return inumReturn;
+}

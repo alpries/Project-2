@@ -242,6 +242,16 @@ Lmain(int argc, char *argv[])
 					Lprintf("\n");
 					break;
 				}
+				if (Lstrcmp(token[j], "cd") == 0){
+					uint cdresult = cd(1, token[j+1]);
+					if (cdresult == -1){
+						Lprintf("Directory does not exist\n");
+					       break;	
+					}
+					Lprintf("Worked: %d\n", cdresult);
+					break;
+				}
+
 				if(Lstrcmp(token[j], "find") == 0){
 					Lprintf("Returned Inode: %d\n", find_name_in_dirblock(Latoi(token[j+1]),token[j+2]));
 					break;
