@@ -8,6 +8,7 @@ extern int DEVFD;
 void binit(void);
 struct buf* bread(uint, uint);
 void brelse(struct buf*);
+void bwrite(struct buf*);
 
 int getinode(struct dinode *inode,  uint inodenum){
   struct buf *b;
@@ -115,8 +116,11 @@ void lsdir(uint blockptr){
     if(result == -1){
       continue;
     }
+    Lprintf("%-14s %d %d %d\n", dir->name, inode.type, dir->inum, inode.size);
    // Lprintf("Inode: %d   Name: %s\n", dir->inum, dir->name);
-    Lprintf("%s      %d %d %d\n", dir->name, inode.type, dir->inum, inode.size);
+   //Lprintf("%s", dir->name);
+    //Lprintf("%20d %d %d\n", inode.type, dir->inum, inode.size);
+   // %d %20s %10d  %d %d\n
   }
 
   brelse(b);
@@ -150,4 +154,77 @@ uint cd(uint inum, const char *name){
     return -1;
   }
   return inumReturn;
+}
+
+
+int unlink(const char *pathname){
+  char fileName[20] = {0};
+  uint inum = dirWithFileToRm(pathname, fileName);
+  if(inum == 0){
+    return -1;
+  }
+  struct dinode inode;
+  int result = getinode(&inode, inum);
+  if(result == -1 || inode.type != T_DIR){
+    return -1;
+  }
+  for(int i = 0; i < 13; i++){
+    if (inode.addrs[i] == 0){
+      return -1;
+    }
+    uint blockptr = inode.addrs[i];
+    struct buf *b;
+    b = bread(DEVFD, blockptr);
+    //Lprintf("Validity:  %d\n", b->valid);
+    if (b->valid == 1){
+      struct dirent *dir;
+      for (int k = 0; k < 64; k++) {
+        dir = (struct dirent *) &b->data[k*16];
+        if (Lstrcmp(dir->name, fileName) == 0){
+          int result = getinode(&inode, dir->inum);
+          if(result == -1){
+             brelse(b);
+            return -1;
+          }
+          if(inode.type == T_FILE){
+            dir->inum = 0;
+            b->dirty = 1;
+	    bwrite(b);
+            brelse(b);
+            return 0;
+          }
+        }
+      }
+      brelse(b);
+    }
+  }
+  return -1;
+}
+
+uint dirWithFileToRm(const char *pathname, char *name){
+  uint inum;
+  if (pathname[0] != '/') {
+    return 0;
+  }
+    char dirName[1024];
+    // Location of root inode
+    inum = 1;
+    int j = 0;
+    for(int i = 1; pathname[i] != '\0'; i++){
+      dirName[j] = pathname[i];
+      if (pathname[i] == '/'){
+        dirName[j] = '\0';
+        inum = find_dent(inum, dirName);
+        if (inum == 0) return 0; // Directory not found
+        dirName[0] = '\0';
+        j = -1;
+      }
+      j++;
+    }
+
+    if (j > 0) { // Handle the last part of the path
+        dirName[j] = '\0';
+        Lstrcpy(name, dirName);
+    }
+    return inum;
 }

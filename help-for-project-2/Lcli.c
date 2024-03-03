@@ -54,6 +54,7 @@ void printStack(const DirectoryStack *stack);
 int lsCommand(char *token[], int curr);
 int buildPathFromStack(const DirectoryStack *stack, char *resultPath, int resultSize);
 int cdCommand(DirectoryStack *stack, char *token);
+int unlinkCommand(char *token[],int curr);
 
 
 void
@@ -204,7 +205,7 @@ Lmain(int argc, char *argv[])
 		Lprintf("  block map:\n");
 		for (uint j = 0; j < NDIRECT && inode->addrs[j] != 0; j++)
 		//	Lprintf("    direct block 0x%08x\n", inode->addrs[j]);
-			Lprintf("    direct block decimal: %d, hexadecimal: 0x%08x\n", inode->addrs[j], inode->addrs[j]);
+			Lprintf("    direct block in decimal: %d --- hexadecimal: 0x%08x\n", inode->addrs[j], inode->addrs[j]);
 		if (inode->size > NDIRECT * BSIZE && inode->addrs[NDIRECT - 1] != 0)
 			Lprintf("      indirect block 0x%08x\n", inode->addrs[NDIRECT]);
 	}
@@ -222,8 +223,8 @@ Lmain(int argc, char *argv[])
         int flag = 0;
 	char buf[LINESIZE];
 	char *ptrBuf;
-	//char *token[NTOKS] = {NULL};
-	Lprintf("fscli> ");
+	Lprintf("\n/********************\n * TERMINAL STARTED *\n ********************/\n\n");
+	Lprintf("batcave> ");
 	while (Lread(0, buf, LINESIZE) > 0 && flag == 0) {
 		char *token[NTOKS] = {NULL};
 		/* With the terminal in line buffered mode, buf will hold
@@ -237,74 +238,44 @@ Lmain(int argc, char *argv[])
      			// Parses Line to get the token
      			parseLine(&ptrBuf, Lstrlen(buf),token);
  
-     			// Loops through the Line token
-     			for(int j =0; j < 30; j++){
 				// Makes sure the tokens arent null
-       				if(token[j] == NULL){
-	 				break;
-       				}
-       				/* Help Command was Called
-				 Has \n because when user inputs help they have to click enter(\n)
-				 Handles \"help\" command*/
-       				if(Lstrcmp(token[j], "help") == 0){
+       				if(token[0] == NULL){
+	 				Lprintf("Invalid Command");
+       				}else if(Lstrcmp(token[0], "help") == 0){
  	 				help();
-	 				break;
-      			 	}
-				// Handles pwd command
-				if (Lstrcmp(token[j], "pwd") == 0){
-					//Lprintf("%s\n", CWD.name);
+      			 	}else if (Lstrcmp(token[0], "pwd") == 0){
 					printStack(&dirStack);
 					Lprintf("\n");
-					break;
-				}
-				if (Lstrcmp(token[j], "cd") == 0){
-
-					uint cdresult = cdCommand(&dirStack, token[j+1]);
+				}else if (Lstrcmp(token[0], "cd") == 0){
+					uint cdresult = cdCommand(&dirStack, token[1]);
 					if (cdresult == -1){
-						Lprintf("Directory does not exist\n");
-						break;
+					   Lprintf("Directory does not exist\n");
 					}
-					break;
-				}
-
-				if(Lstrcmp(token[j], "find") == 0){
-					Lprintf("Returned Inode: %d\n", find_name_in_dirblock(Latoi(token[j+1]),token[j+2]));
-					break;
-				}
-
-				if(Lstrcmp(token[j], "dent") == 0){
-					Lprintf("Returned Inode: %d\n", find_dent(Latoi(token[j+1]), token[j+2]));
-					break;
-				}
-				if(Lstrcmp(token[j], "path") == 0){
-					Lprintf("Returned Inode: %d\n", namei(token[j+1]));
-					break;
-				}
-				
-				if(Lstrcmp(token[j], "ls") == 0){
-					int lsResult = lsCommand(token,j);
+				}else if (Lstrcmp(token[0], "unlink") == 0){
+					int unlinkResult = unlinkCommand(token,0);
+					if (unlinkResult == -1){
+				           Lprintf("Directory does not exist\n");
+					}
+				}else if(Lstrcmp(token[0], "find") == 0){
+					Lprintf("Returned Inode: %d\n", find_name_in_dirblock(Latoi(token[1]),token[2]));
+				}else if(Lstrcmp(token[0], "dent") == 0){
+					Lprintf("Returned Inode: %d\n", find_dent(Latoi(token[1]), token[2]));
+				}else if(Lstrcmp(token[0], "path") == 0){
+					Lprintf("Returned Inode: %d\n", namei(token[1]));
+				}else if(Lstrcmp(token[0], "ls") == 0){
+					int lsResult = lsCommand(token,0);
 					if (lsResult == -1){
 					    Lprintf("Directory does not exist\n");
-					    break;
 					}
-					break;
-			
-				}
-
-				if (Lstrcmp(token[j], "lspath") == 0){
-					lspath(token[j+1]);
-					break;
-				}
-				if(Lstrcmp(token[j], "quit") == 0){
+				}else if (Lstrcmp(token[0], "lspath") == 0){
+					lspath(token[1]);
+				}else if(Lstrcmp(token[0], "quit") == 0){
 					flag = 1;
-					break;
+				}else{
+       					// Display an invalid message when token doesn't match an action
+       					Lprintf("Invalid Command\n");
 				}
-	
-       				// Display an invalid message when token doesn't match an action
-       				Lprintf("Invalid Command\n");
-       				break;
-    		 	}
-  		}
+		}
 		/*
 			If command was pwd:
 
@@ -334,14 +305,15 @@ Lmain(int argc, char *argv[])
 				Lprintf("Could not cd to %s (not a directory)\n", path);
 				}
 		*/
-
+		
+		// clearing buf
 		for(int i = 0; i< LINESIZE; i++){
 			buf[i] = 0;
 		}
 		if (flag == 1){
 			break;
 		} else {
-			Lprintf("fscli> ");
+			Lprintf("batcave> ");
 		}
 	}
 	//Lprintf("\n");
@@ -427,6 +399,27 @@ lsCommand(char *token[], int curr){
 	}
 	lspath(pathResult);
 	return 0;
+}
+
+/*****************************
+ * IMPLEMENTING UNLINK COMMAND
+ ****************************/
+int
+unlinkCommand(char *token[],int curr){
+
+	if (token[curr + 1] == NULL){
+		return -1;
+	}
+	char pathResult[1000] ={0};
+
+	int currentLength = buildPathFromStack(&dirStack, pathResult, sizeof(pathResult));
+	// Ensure there's a slash before, but avoid a double slash
+	if (currentLength > 0 && pathResult[currentLength - 1] != '/') {
+		Lstrcpy(pathResult + currentLength++, "/");
+	}
+   	Lstrcpy(pathResult + currentLength, token[curr+1]);
+
+	return unlink(pathResult);
 }
 
 /*****************************
