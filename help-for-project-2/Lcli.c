@@ -397,51 +397,35 @@ cdCommand(DirectoryStack *stack, char *token){
 /*****************************
  * IMPLEMENTING LS COMMAND
  ****************************/
-
 int
 lsCommand(char *token[], int curr){
-	struct dinode inode;
-	uint targetInum;
-//	if (token[curr+1] != NULL){
-//		Lprintf("Extra word: %s\n", token[curr+1]);
-//	}
-
+	char pathResult[1000] ={0};
 
 	if (token[curr+1] == NULL || Lstrcmp(token[curr+1], ".") == 0) {
-    		targetInum = dirStack.entries[dirStack.top].inum;
+			buildPathFromStack(&dirStack, pathResult, sizeof(pathResult));
 	} else if (Lstrcmp(token[curr+1], "..") == 0) {
 		if (dirStack.top == 0) {
 			Lprintf("Cannot go above root\n");
 			return -1;
-		} else {
-			targetInum = dirStack.entries[dirStack.top - 1].inum;
-		}
-
-	} else if(token[curr+1] != NULL) {
-		char pathResult[1000] ={0};
-
+		} 
 		int currentLength = buildPathFromStack(&dirStack, pathResult, sizeof(pathResult));
 		// Ensure there's a slash before, but avoid a double slash
-    		if (currentLength > 0 && pathResult[currentLength - 1] != '/') {
-         		Lstrcpy(pathResult + currentLength++, "/");
-    		}	
+		if (currentLength > 0 && pathResult[currentLength - 1] != '/') {
+			Lstrcpy(pathResult + currentLength++, "/");
+		}	
+		Lstrcpy(pathResult + currentLength, token[curr+1]);	
+		//targetInum = dirStack.entries[dirStack.top - 1].inum;
+	} else if(token[curr+1] != NULL) {
+		int currentLength = buildPathFromStack(&dirStack, pathResult, sizeof(pathResult));
+		// Ensure there's a slash before, but avoid a double slash
+		if (currentLength > 0 && pathResult[currentLength - 1] != '/') {
+			Lstrcpy(pathResult + currentLength++, "/");
+		}	
    		Lstrcpy(pathResult + currentLength, token[curr+1]);	
-		targetInum = namei(pathResult);
 	}else{
-			return -1;
-	}
-
-
-	int result = getinode(&inode, targetInum);
-	if (result == -1 || inode.type != T_DIR){
 		return -1;
 	}
-	for(int i = 0; i < 13; i++){
-		if (inode.addrs[i] == 0){
-			return 0;
-		}
-		lsdir(inode.addrs[i]);
-	}
+	lspath(pathResult);
 	return 0;
 }
 
