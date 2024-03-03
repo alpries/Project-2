@@ -37,7 +37,7 @@ uint find_name_in_dirblock(uint blockptr, const char *nam){
   //Lprintf("Block ptr: %d Name: %s\n", blockptr, nam);
   struct buf *b;
   b = bread(DEVFD, blockptr);
-  Lprintf("Validity:  %d\n", b->valid);
+  //Lprintf("Validity:  %d\n", b->valid);
   if (b->valid == 1){
     struct dirent *dir;
     for (int k = 0; k < 64; k++) {

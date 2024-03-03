@@ -52,6 +52,8 @@ CWD pop(DirectoryStack *stack);
 CWD peek(const DirectoryStack *stack);
 void printStack(const DirectoryStack *stack);
 int lsCommand(char *token[], int curr);
+int buildPathFromStack(const DirectoryStack *stack, char *resultPath, int resultSize);
+int cdCommand(DirectoryStack *stack, char *token);
 
 
 void
@@ -91,6 +93,10 @@ cwd_init(void)
 
 void
 cwd_update(uint inum, const char *name){
+	if (Lstrcmp((char *)name, "..") == 0){
+		pop(&dirStack);
+		return;
+	}
 	CWD newDir = {inum, ""};
 	Lstrcpy(newDir.name, name);
 	push(&dirStack,newDir);
@@ -252,13 +258,12 @@ Lmain(int argc, char *argv[])
 					break;
 				}
 				if (Lstrcmp(token[j], "cd") == 0){
-					uint cdresult = cd(dirStack.entries[dirStack.top].inum, token[j+1]);
+
+					uint cdresult = cdCommand(&dirStack, token[j+1]);
 					if (cdresult == -1){
 						Lprintf("Directory does not exist\n");
-					       break;	
+						break;
 					}
-					cwd_update(cdresult, token[j+1]);
-					//Lprintf("Worked: %d\n", cdresult);
 					break;
 				}
 
@@ -375,6 +380,20 @@ parseLine(char **line, int len, char **token){
     }
     return 1;
 }
+
+/*****************************
+ * IMPLEMENTING CD COMMAND
+ ****************************/
+int 
+cdCommand(DirectoryStack *stack, char *token){
+	uint cdresult = cd(stack->entries[stack->top].inum, token);
+	if (cdresult == -1){
+		return -1;
+	}
+	cwd_update(cdresult, token);
+	return cdresult;
+}
+
 /*****************************
  * IMPLEMENTING LS COMMAND
  ****************************/
@@ -383,9 +402,9 @@ int
 lsCommand(char *token[], int curr){
 	struct dinode inode;
 	uint targetInum;
-	if (token[curr+1] != NULL){
-		Lprintf("Extra word: %s\n", token[curr+1]);
-	}
+//	if (token[curr+1] != NULL){
+//		Lprintf("Extra word: %s\n", token[curr+1]);
+//	}
 
 
 	if (token[curr+1] == NULL || Lstrcmp(token[curr+1], ".") == 0) {
@@ -397,15 +416,19 @@ lsCommand(char *token[], int curr){
 		} else {
 			targetInum = dirStack.entries[dirStack.top - 1].inum;
 		}
-	}else if(token[curr+1] != NULL) {
-		uint cdresult = cd(dirStack.entries[dirStack.top].inum, token[curr+1]);
-		if (cdresult == -1){
+
+	} else if(token[curr+1] != NULL) {
+		char pathResult[1000] ={0};
+
+		int currentLength = buildPathFromStack(&dirStack, pathResult, sizeof(pathResult));
+		// Ensure there's a slash before, but avoid a double slash
+    		if (currentLength > 0 && pathResult[currentLength - 1] != '/') {
+         		Lstrcpy(pathResult + currentLength++, "/");
+    		}	
+   		Lstrcpy(pathResult + currentLength, token[curr+1]);	
+		targetInum = namei(pathResult);
+	}else{
 			return -1;
-		} 
-		targetInum = cdresult;
-	} else {
-		Lprintf("Path not supported\n");
-		return -1;
 	}
 
 
@@ -505,6 +528,32 @@ void printStack(const DirectoryStack *stack) {
 
     }
    // Lprintf("\n");
+}
+
+int buildPathFromStack(const DirectoryStack *stack, char *resultPath, int resultSize) {
+    resultPath[0] = '\0'; // Ensure the resultPath is initially empty
+    int currentLength = 0;
+
+    for (int i = 0; i <= stack->top; i++) {
+        // Do not prepend a '/' for the first entry, which is "/"
+        if (i > 1 && currentLength + 1 < resultSize) { // Add a slash before the directory name except for the first entry
+            resultPath[currentLength++] = '/';
+            resultPath[currentLength] = '\0'; // Ensure null termination
+        }
+
+        // Append the directory name	
+        int nameLength = Lstrlen((char *)stack->entries[i].name);
+        if (currentLength + nameLength < resultSize) {
+            Lstrcpy(resultPath + currentLength, stack->entries[i].name);
+            currentLength += nameLength; // Increment by the length of the name
+        } else {
+            // Not enough space to add the next directory name
+            break;
+        }
+    }
+
+    // Return the current length of the path
+    return currentLength;
 }
 
 void *memcpy(void *dest, const void *src, size_t n) {
