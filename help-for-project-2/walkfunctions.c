@@ -3,6 +3,7 @@
 #include "Lcli.h"
 #include "walkfunctions.h"
 extern int DEVFD;
+extern struct superblock SB;
 
 /* From Lbio.c */
 void binit(void);
@@ -10,10 +11,17 @@ struct buf* bread(uint, uint);
 void brelse(struct buf*);
 void bwrite(struct buf*);
 extern struct {
-    /* struct spinlock lock; */
     struct buf buf[NBUF];
     struct buf head;
 } bcache;
+
+int inodeUsage[BSIZE]; 
+void initInodeUsage() {
+    for (int i = 0; i < BSIZE; i++) {
+        inodeUsage[i] = 0; 
+    }
+}
+
 
 int getinode(struct dinode *inode,  uint inodenum){
   struct buf *b;
@@ -147,50 +155,57 @@ uint cd(uint inum, const char *name){
   return inumReturn;
 }
 
-
 int unlink(const char *pathname){
-  char fileName[20] = {0};
-  uint inum = dirWithFileToRm(pathname, fileName);
-  if(inum == 0){
-    return -1;
-  }
-  struct dinode inode;
-  int result = getinode(&inode, inum);
-  if(result == -1 || inode.type != T_DIR){
-    return -1;
-  }
-  for(int i = 0; i < 13; i++){
-    if (inode.addrs[i] == 0){
-      return -1;
+    char fileName[20] = {0};
+    uint parentInum = dirWithFileToRm(pathname, fileName);
+    if(parentInum == 0){
+        return -1; // Failed to find parent directory or file
     }
-    uint blockptr = inode.addrs[i];
-    struct buf *b;
-    b = bread(DEVFD, blockptr);
-    //Lprintf("Validity:  %d\n", b->valid);
-    if (b->valid == 1){
-      struct dirent *dir;
-      for (int k = 0; k < 64; k++) {
-        dir = (struct dirent *) &b->data[k*16];
-        if (Lstrcmp(dir->name, fileName) == 0){
-          int result = getinode(&inode, dir->inum);
-          if(result == -1){
-             brelse(b);
-            return -1;
-          }
-          if(inode.type == T_FILE){
-            dir->inum = 0;
-            b->dirty = 1;
-	    bwrite(b);
+    struct dinode parentInode;
+    if(getinode(&parentInode, parentInum) == -1 || parentInode.type != T_DIR){
+        return -1; // Parent is not a directory or failed to read inode
+    }
+
+    uint targetInum = find_dent(parentInum, fileName);
+    if(targetInum == 0){
+        return -1; // Failed to find the target file or directory in the parent
+    }
+
+    struct dinode targetInode;
+    if(getinode(&targetInode, targetInum) == -1){
+        return -1; // Failed to read target inode
+    }
+    if(targetInode.type != T_FILE && targetInode.type != T_DIR){
+        return -1; // Only files and directories can be unlinked
+    }
+
+    int removed = 0;
+    for(int i = 0; i < 13 && !removed; i++){
+        if (parentInode.addrs[i] == 0) continue;
+
+        struct buf *b = bread(DEVFD, parentInode.addrs[i]);
+        if (b->valid == 1){
+            struct dirent *dir;
+            for (int k = 0; k < 64; k++) {
+                dir = (struct dirent *) &b->data[k*16];
+                if (Lstrcmp(dir->name, fileName) == 0){
+                    Lmemset(dir, 0, sizeof(struct dirent));
+                    b->dirty = 1;
+                    bwrite(b);
+                    removed = 1;
+                    break;
+                }
+            }
             brelse(b);
-            return 0;
-          }
         }
-      }
-      brelse(b);
     }
-  }
-  return -1;
+    if (!removed) {
+        return -1; 
+    }
+    return 0; 
 }
+
+
 
 uint dirWithFileToRm(const char *pathname, char *name){
   uint inum;
@@ -286,47 +301,60 @@ int link(const char *pathname, const char *pathname2){
 
 uint createPath(uint inum, const char *name) {
     struct dinode inode;
-    struct buf *b = NULL;
-    struct dirent *dir = NULL;
+    struct buf *b;
+    struct dirent *dir;
 
     if (getinode(&inode, inum) == -1 || inode.type != T_DIR) {
-        return -1; // Inode must exist and be a directory
+        return -1;
     }
 
     for (int i = 0; i < 13; i++) {
-        if (inode.addrs[i] != 0) {
-            b = bread(DEVFD, inode.addrs[i]);
-            for (uint k = 0; k < 64; k++) {
-                dir = (struct dirent *)&b->data[k * sizeof(struct dirent)];
-                if (dir->inum == 0) { // Assumes an unused entry has inum set to 0
-                    // Found an empty slot
-                    size_t name_len = Lstrlen((char *)name);
-                    if (name_len >= DIRSIZ) {
-                        name_len = DIRSIZ - 1;
-                    }
-                    Lmemcpy(dir->name, name, name_len);
-                    dir->name[name_len] = '\0';
-
-                    // Assume emptyInode finds or allocates a free inode
-                    uint emptyInode = 1;
-                    if (emptyInode == 0) {
-                        brelse(b);
-                        return -1; // Handle error
-                    }
-
-                    dir->inum = emptyInode;
-                    bwrite(b); // Write back to disk
-                    brelse(b); // Release the buffer
-                    return emptyInode;
-                }
-            }
-            brelse(b); // Release the buffer if no empty entry found in this block
+        if (inode.addrs[i] == 0) {
+            continue;
         }
+
+        b = bread(DEVFD, inode.addrs[i]);
+        for (uint k = 0; k < BSIZE / sizeof(struct dirent); k++) {
+            dir = (struct dirent *)&b->data[k * sizeof(struct dirent)];
+            if (dir->inum == 0) {
+                size_t name_len = Lstrlen((char *)name);
+                if (name_len >= DIRSIZ) {
+                    name_len = DIRSIZ - 1;
+                }
+                Lmemcpy(dir->name, name, name_len);
+                dir->name[name_len] = '\0';
+
+                uint emptyInode = 0;
+                for (uint j = 1; j < BSIZE; j++) { // Start at 1 to skip the root inode
+                    if (inodeUsage[j] == 0) { // Found a free inode
+                        emptyInode = j;
+                        inodeUsage[j] = 1; // Mark as in use
+                        break;
+                    }
+                }
+
+                if (emptyInode == 0) {
+                    brelse(b);
+                    return -1; // No free inode found
+                }
+
+                dir->inum = emptyInode;
+                b->dirty = 1;
+                bwrite(b);
+                brelse(b);
+
+                // Additional code to initialize the new inode goes here.
+
+                return emptyInode;
+            }
+        }
+        brelse(b);
     }
-    return -1; // No space found
+	Lprintf("%d\n", inode);
+	Lprintf("%d\n", inum);
+
+    return -1;
 }
-
-
 
 
 void sync() {
@@ -341,3 +369,110 @@ void sync() {
         bwrite(b);
     }
 }
+
+int iupdate(struct dinode *inode, uint inum) {
+    uint blockno = IBLOCK(inum, SB);
+    struct buf *bp = bread(DEVFD, blockno);
+    struct dinode *dip = (struct dinode *)(bp->data) + (inum % IPB);
+
+    *dip = *inode;
+    bp->dirty = 1;
+    bwrite(bp);
+    brelse(bp);
+    return 0; 
+}
+
+uint mkdir(const char *path) {
+    if (path[0] != '/') {
+        return -1; 
+    }
+
+    char parentPath[1024] = {0};
+    char newDirName[DIRSIZ] = {0};
+    const char *slash = Lstrchr(path, '/');
+    if (slash && slash != path) { 
+        size_t len = slash - path;
+        Lmemcpy(parentPath, path, len); 
+        parentPath[len] = '\0'; 
+        Lmemcpy(newDirName, slash + 1, Lstrlen((char *)slash + 1)); 
+    } else {
+        return -1; 
+    }
+
+    uint parentInum = namei(parentPath);
+    if (parentInum == 0) {
+        return -1; 
+    }
+
+    if (find_dent(parentInum, newDirName) != 0) {
+        return -1; 
+    }
+
+    uint newDirInum = ialloc(DEVFD, T_DIR);
+    if (newDirInum == 0) {
+        return -1; 
+    }
+
+    struct dinode newDirInode;
+    Lmemset(&newDirInode, 0, sizeof(struct dinode));
+    newDirInode.type = T_DIR;
+    newDirInode.nlink = 2;
+    newDirInode.size = 2 * sizeof(struct dirent);
+
+    uint newDirBlock = balloc(DEVFD); // You need to implement balloc
+    if (newDirBlock == 0) {
+        return -1; 
+    }
+    newDirInode.addrs[0] = newDirBlock;
+
+    struct buf *b = bread(DEVFD, newDirBlock);
+    struct dirent *de = (struct dirent *)b->data;
+    de->inum = newDirInum;
+    Lmemcpy(de->name, ".", 2);
+    de++;
+    de->inum = parentInum;
+    Lmemcpy(de->name, "..", 3);
+    Lmemset((void *)(de + 1), 0, BSIZE - 2 * sizeof(struct dirent));
+    b->dirty = 1;
+    bwrite(b);
+    brelse(b);
+
+    iupdate(&newDirInode, newDirInum);
+
+    struct buf *parentBuf = bread(DEVFD, BBLOCK(parentInum, SB));
+	struct dirent *parentDe = (struct dirent *)parentBuf->data;
+	for (int i = 0; i < BSIZE / sizeof(struct dirent); i++, parentDe++) {
+   	 if (parentDe->inum == 0) { 
+       	 parentDe->inum = newDirInum;
+       	 size_t dirNameLen = Lstrlen(newDirName);
+       	 if (dirNameLen >= DIRSIZ) {
+            dirNameLen = DIRSIZ - 1;
+       	 }
+       	 Lmemcpy(parentDe->name, newDirName, dirNameLen);
+       	 parentDe->name[dirNameLen] = '\0'; 
+       	 parentBuf->dirty = 1;
+       	 bwrite(parentBuf);
+       	 break;
+  	  }
+	}
+brelse(parentBuf);
+
+    return newDirInum; 
+}
+
+
+
+uint balloc(int dev) {
+    // This function should find a free block, mark it as used in the bitmap,
+    // and return the block number. Here, it's just a placeholder.
+    // Implementation depends on how your filesystem manages free blocks.
+    return 1; //place block number
+}
+
+uint ialloc(uint dev, int type) {
+    // Placeholder that always allocates inode number 2 for example purposes.
+    // In reality, you need to scan the inode list to find a free inode.
+    return 2;
+}
+
+

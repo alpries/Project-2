@@ -65,9 +65,14 @@ int lspath(const char *pathname);
   Use namei, getinode, and lsdir().
 */
 
+
 uint cd(uint inum, const char *name);
 int unlink(const char *pathname);
 uint dirWithFileToRm(const char *pathname, char *name);
 int link(const char *pathname, const char *pathname2);
 uint createPath(uint inum, const char *name);
 void sync();
+uint balloc(int dev);
+int iupdate(struct dinode *inode, uint inum);
+uint ialloc(uint dev, int type);
+uint mkdir(const char* path);
