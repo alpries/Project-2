@@ -248,7 +248,7 @@ Lmain(int argc, char *argv[])
 					printStack(&dirStack);
 					Lprintf("\n");
 				}else if (Lstrcmp(token[0], "creat") == 0){
-					createPath(20, token[1]);
+					createPath(dirStack.entries[dirStack.top].inum, token[1]);
 				}else if (Lstrcmp(token[0], "mkdir") == 0){
 					mkdir(token[1]);
 				}else if (Lstrcmp(token[0], "sync") == 0){

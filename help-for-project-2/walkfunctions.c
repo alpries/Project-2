@@ -455,24 +455,56 @@ uint mkdir(const char *path) {
        	 break;
   	  }
 	}
-brelse(parentBuf);
-
+	brelse(parentBuf);
     return newDirInum; 
 }
 
-
+#define TOTAL_BLOCKS 10000 
+int blockBitmap[TOTAL_BLOCKS] = {0};
 
 uint balloc(int dev) {
-    // This function should find a free block, mark it as used in the bitmap,
-    // and return the block number. Here, it's just a placeholder.
-    // Implementation depends on how your filesystem manages free blocks.
-    return 1; //place block number
+    for (uint i = 0; i < TOTAL_BLOCKS; i++) {
+        if (blockBitmap[i] == 0) { 
+            blockBitmap[i] = 1; 
+            struct buf *b = bread(dev, i);
+            Lmemset(b->data, 0, BSIZE);
+            bwrite(b);
+            brelse(b);
+
+            return i; 
+        }
+    }
+    return 0; 
 }
 
+#define TOTAL_INODES 1024 
+int inodeBitmap[TOTAL_INODES] = {0}; 
+
+
 uint ialloc(uint dev, int type) {
-    // Placeholder that always allocates inode number 2 for example purposes.
-    // In reality, you need to scan the inode list to find a free inode.
-    return 2;
+    for (uint i = 1; i < TOTAL_INODES; i++) { 
+        if (inodeBitmap[i] == 0) { 
+            inodeBitmap[i] = 1; 
+
+            struct dinode newInode;
+            Lmemset(&newInode, 0, sizeof(struct dinode));
+            newInode.type = type;
+            newInode.nlink = 1; 
+
+            
+            uint blockno = IBLOCK(i, SB); 
+            struct buf *bp = bread(dev, blockno);
+            struct dinode *dip = (struct dinode *)(bp->data) + (i % IPB);
+            *dip = newInode; 
+            bp->dirty = 1;
+            bwrite(bp);
+            brelse(bp);
+
+            return i; 
+        }
+    }
+    return 0; 
 }
+
 
 
