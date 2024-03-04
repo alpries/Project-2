@@ -9,6 +9,11 @@ void binit(void);
 struct buf* bread(uint, uint);
 void brelse(struct buf*);
 void bwrite(struct buf*);
+extern struct {
+    /* struct spinlock lock; */
+    struct buf buf[NBUF];
+    struct buf head;
+} bcache;
 
 int getinode(struct dinode *inode,  uint inodenum){
   struct buf *b;
@@ -277,4 +282,62 @@ int link(const char *pathname, const char *pathname2){
     }
   }
   return -1;
+}
+
+uint createPath(uint inum, const char *name) {
+    struct dinode inode;
+    struct buf *b = NULL;
+    struct dirent *dir = NULL;
+
+    if (getinode(&inode, inum) == -1 || inode.type != T_DIR) {
+        return -1; // Inode must exist and be a directory
+    }
+
+    for (int i = 0; i < 13; i++) {
+        if (inode.addrs[i] != 0) {
+            b = bread(DEVFD, inode.addrs[i]);
+            for (uint k = 0; k < 64; k++) {
+                dir = (struct dirent *)&b->data[k * sizeof(struct dirent)];
+                if (dir->inum == 0) { // Assumes an unused entry has inum set to 0
+                    // Found an empty slot
+                    size_t name_len = Lstrlen((char *)name);
+                    if (name_len >= DIRSIZ) {
+                        name_len = DIRSIZ - 1;
+                    }
+                    Lmemcpy(dir->name, name, name_len);
+                    dir->name[name_len] = '\0';
+
+                    // Assume emptyInode finds or allocates a free inode
+                    uint emptyInode = 1;
+                    if (emptyInode == 0) {
+                        brelse(b);
+                        return -1; // Handle error
+                    }
+
+                    dir->inum = emptyInode;
+                    bwrite(b); // Write back to disk
+                    brelse(b); // Release the buffer
+                    return emptyInode;
+                }
+            }
+            brelse(b); // Release the buffer if no empty entry found in this block
+        }
+    }
+    return -1; // No space found
+}
+
+
+
+
+void sync() {
+  struct buf *b;
+    for (b = bcache.head.next; b!= &bcache.head; b = b->next) {
+        if (b->valid == 0 || b->refcnt == 0) {
+            continue;
+        }
+        if (b->dirty == 0) {
+            continue;
+        }
+        bwrite(b);
+    }
 }

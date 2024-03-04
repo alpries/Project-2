@@ -247,11 +247,19 @@ Lmain(int argc, char *argv[])
       			 	}else if (Lstrcmp(token[0], "pwd") == 0){
 					printStack(&dirStack);
 					Lprintf("\n");
+				}else if (Lstrcmp(token[0], "creat") == 0){
+					createPath(dirStack.entries[dirStack.top].inum, token[1]);
+				
+				}else if (Lstrcmp(token[0], "mkdir") == 0){
+					
+				}else if (Lstrcmp(token[0], "sync") == 0){
+					sync();
 				}else if (Lstrcmp(token[0], "cd") == 0){
 					uint cdresult = cdCommand(&dirStack, token[1]);
 					if (cdresult == -1){
 					   Lprintf("Directory does not exist\n");
-					}
+					
+					} 	
 				}else if (Lstrcmp(token[0], "unlink") == 0){
 					int unlinkResult = unlinkCommand(token,0);
 					if (unlinkResult == -1){
@@ -277,6 +285,7 @@ Lmain(int argc, char *argv[])
 					lspath(token[1]);
 				}else if(Lstrcmp(token[0], "quit") == 0){
 					flag = 1;
+					sync();
 				}else{
        					// Display an invalid message when token doesn't match an action
        					Lprintf("Invalid Command\n");
