@@ -14,22 +14,12 @@ int getinode(struct dinode *inode,  uint inodenum){
   struct buf *b;
   // Using Mailman algorithm
   b = bread(DEVFD, 32 + inodenum / 16);
-  //inode = (struct dinode *) &b->data[(inodenum % 16)*64];
   Lmemcpy(inode, &b->data[(inodenum % 16)*64], 64);
   brelse(b);
-  //Lprintf("inode %d:\n", 0);
   if (inode->type == 0) {
-  //	Lprintf("  UNUSED (file type = 0)\n");
   	return -1;
   }
-  //Lprintf("  file type = %d\n", inode->type);
-  //Lprintf("  number of links = %d\n", inode->nlink);
-  //Lprintf("  file size = %u (bytes)\n", inode->size);
-  //Lprintf("  block map:\n");
-  //for (uint j = 0; j < NDIRECT && inode->addrs[j] != 0; j++)
-  //	  Lprintf("    direct block 0x%08x\n", inode->addrs[j]);
-  //if (inode->size > NDIRECT * BSIZE && inode->addrs[NDIRECT - 1] != 0)
- // 	  Lprintf("      indirect block 0x%08x\n", inode->addrs[NDIRECT]);
+
   return 0;
 
 }
@@ -117,11 +107,7 @@ void lsdir(uint blockptr){
       continue;
     }
     Lprintf("%-14s %d %d %d\n", dir->name, inode.type, dir->inum, inode.size);
-   // Lprintf("Inode: %d   Name: %s\n", dir->inum, dir->name);
-   //Lprintf("%s", dir->name);
-    //Lprintf("%20d %d %d\n", inode.type, dir->inum, inode.size);
-   // %d %20s %10d  %d %d\n
-  }
+   }
 
   brelse(b);
 }
@@ -227,4 +213,68 @@ uint dirWithFileToRm(const char *pathname, char *name){
         Lstrcpy(name, dirName);
     }
     return inum;
+}
+
+int link(const char *pathname, const char *pathname2){
+  char fileName[20] = {0};
+  char fileName2[20] = {0};
+  uint inum = dirWithFileToRm(pathname, fileName);
+  uint inum2 = dirWithFileToRm(pathname2, fileName2);
+  if(inum == 0 || inum2 == 0){
+    return -1;
+  }
+  struct dinode inode;
+  struct dinode inode2;
+  int result = getinode(&inode, inum);
+  int result2 = getinode(&inode2, inum2);
+  if(result == -1 || result2 == -1 || inode.type != T_DIR || inode2.type != T_DIR){
+    return -1;
+  }
+  for(int i = 0; i < 13; i++){
+    if (inode.addrs[i] == 0){
+      return -1;
+    }
+    uint blockptr = inode.addrs[i];
+    uint blockptr2 = inode2.addrs[i];
+    struct buf *b;
+    struct buf *b2;
+    b = bread(DEVFD, blockptr);
+    b2 = bread(DEVFD, blockptr2);
+    //Lprintf("Validity:  %d\n", b->valid);
+    if (b->valid == 1 && b2->valid == 1){
+      struct dirent *dir;
+      struct dirent *dir2;
+
+      for (int k = 0; k < 64; k++) {
+        dir = (struct dirent *) &b->data[k*16];
+        if (Lstrcmp(dir->name, fileName) == 0){
+          int result = getinode(&inode, dir->inum);
+          if(result == -1 || inode.type != T_FILE){
+             brelse(b);
+            return -1;
+          }
+            break;
+        }
+      }
+
+      for (int k = 0; k < 64; k++) {
+        dir2 = (struct dirent *) &b2->data[k*16];
+        if (Lstrcmp(dir2->name, fileName2) == 0){
+          int result2 = getinode(&inode2, dir2->inum);
+          if(result2 == -1 || inode2.type != T_FILE){
+             brelse(b2);
+            return -1;
+          }
+            break;
+        }
+      }
+
+      dir->inum = dir2->inum;
+      bwrite(b);
+      brelse(b);
+      brelse(b2);
+      return 0;
+    }
+  }
+  return -1;
 }

@@ -55,6 +55,7 @@ int lsCommand(char *token[], int curr);
 int buildPathFromStack(const DirectoryStack *stack, char *resultPath, int resultSize);
 int cdCommand(DirectoryStack *stack, char *token);
 int unlinkCommand(char *token[],int curr);
+int linkCommand(char *token[], int curr);
 
 
 void
@@ -256,6 +257,11 @@ Lmain(int argc, char *argv[])
 					if (unlinkResult == -1){
 				           Lprintf("Directory does not exist\n");
 					}
+				}else if(Lstrcmp(token[0], "link") == 0){
+					int linkResult = linkCommand(token,0);
+					if (linkResult == -1){
+					    Lprintf("Directory does not exist\n");
+					}
 				}else if(Lstrcmp(token[0], "find") == 0){
 					Lprintf("Returned Inode: %d\n", find_name_in_dirblock(Latoi(token[1]),token[2]));
 				}else if(Lstrcmp(token[0], "dent") == 0){
@@ -420,6 +426,32 @@ unlinkCommand(char *token[],int curr){
    	Lstrcpy(pathResult + currentLength, token[curr+1]);
 
 	return unlink(pathResult);
+}
+
+/*****************************
+ * IMPLEMENTING LINK COMMAND
+ * ****************************/
+int
+linkCommand(char *token[], int curr){
+	if (token[curr + 1] == NULL || token[curr + 2] == NULL){
+		return -1;
+	}
+	char pathResult[1000] ={0};
+	char pathResult2[1000] ={0};
+
+	int currentLength = buildPathFromStack(&dirStack, pathResult, sizeof(pathResult));
+
+	Lstrcpy(pathResult2, pathResult);
+	// Ensure there's a slash before, but avoid a double slash
+	if (currentLength > 0 && pathResult[currentLength - 1] != '/') {
+		Lstrcpy(pathResult + currentLength, "/");
+		Lstrcpy(pathResult2 + currentLength, "/");
+		currentLength++;
+	}
+   	Lstrcpy(pathResult + currentLength, token[curr+1]);
+	Lstrcpy(pathResult2 + currentLength, token[curr+2]);
+
+	return link(pathResult, pathResult2);
 }
 
 /*****************************
